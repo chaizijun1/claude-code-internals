@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+*.pyc
+__pycache__/
+*.pyo
+
+# Environment
+.env
+.env.local
+
+# Cloned source repos (large, do not commit)
+claude-code-source-code/
+claude-code-sourcemap/
+
+# Temporary conversion scripts
+*.py
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
