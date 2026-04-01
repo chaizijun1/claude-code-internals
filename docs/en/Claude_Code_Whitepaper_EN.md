@@ -28,6 +28,8 @@
 - [Part 16: Power User Tips (Advanced)](#part-16-power-user-tips-advanced)
 - [Part 17: Hidden Internal Features & Feature Gates](#part-17-hidden-internal-features--feature-gates)
 - [Part 18: Architectural Design Patterns Summary](#part-18-architectural-design-patterns-summary)
+- [Part 21: Practical Workflow Recipes](#part-21-practical-workflow-recipes)
+- [Part 22: Troubleshooting & Common Pitfalls](#part-22-troubleshooting--common-pitfalls)
 - [Part 19: Key Differences from the Standard Claude API](#part-19-key-differences-from-the-standard-claude-api)
 - [Part 20: Future Roadmap & Outlook](#part-20-future-roadmap--outlook)
 - [Appendix](#appendix)
@@ -1418,214 +1420,629 @@ This mechanism causes **108 modules** to be eliminated in the public release.
 
 ## Part 14: Power User Tips (Beginner)
 
-### 14.1 Basic Configuration Optimization
+### 14.1 Installation & First Run
 
-#### Creating a CLAUDE.md Project File
+```bash
+# Global install
+npm install -g @anthropic-ai/claude-code
 
-Create a `CLAUDE.md` in your project root — this is the **single most important step** to improving Claude Code's effectiveness:
+# Or run directly with npx (no install needed)
+npx @anthropic-ai/claude-code
+
+# Launch in a project directory
+cd /path/to/your/project
+claude
+
+# Launch with an initial prompt
+claude "Help me analyze this project's structure"
+
+# Headless mode (for script integration)
+claude -p "List all TODO comments" > todos.txt
+```
+
+### 14.2 Understanding the Interface
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Claude Code v2.1.88                                 │
+│                                                     │
+│ 💬 Previous Claude response...                      │
+│                                                     │
+│ 🔧 Tool: FileRead (src/index.ts)                    │  ← Tool calls shown in real time
+│ ✅ Tool complete                                     │
+│                                                     │
+│ 💬 Claude's latest response...                      │
+│                                                     │
+│ > Your input cursor here _                          │  ← Input area
+│                                                     │
+│ [Tokens: 12,450 / 200,000]  [Cost: $0.03]          │  ← Status bar
+└─────────────────────────────────────────────────────┘
+
+Keyboard shortcuts:
+├── Enter        → Send message (multi-line: Shift+Enter)
+├── Ctrl+C       → Interrupt current operation
+├── Ctrl+D       → Exit Claude Code
+├── Esc          → Cancel current input
+├── Up/Down      → Browse input history
+└── Tab          → Autocomplete slash commands
+```
+
+### 14.3 Creating Your First CLAUDE.md
+
+**This is the first and most important step to improving efficiency**. Source code analysis shows that CLAUDE.md content is injected into the system prompt on **every turn**, directly influencing the model's behavior.
 
 ```markdown
 # Project Description
 
 ## Tech Stack
-- Next.js 14 + TypeScript
+- Next.js 14 + TypeScript + App Router
 - Prisma + PostgreSQL
-- Tailwind CSS
+- Tailwind CSS + shadcn/ui
 
 ## Development Commands
-- `npm run dev` — Start dev server
-- `npm test` — Run tests
-- `npm run lint` — Lint code
-- `npm run build` — Build project
+- `pnpm dev` — Start dev server (port 3000)
+- `pnpm test` — Run Vitest tests
+- `pnpm lint` — ESLint check
+- `pnpm build` — Production build
 
-## Code Conventions
-- Use function components + Hooks
-- State management with Zustand
-- API routes in /app/api/ directory
-- Components in /components/ directory
+## Directory Structure
+- src/app/ — Page routes (App Router)
+- src/components/ — React components (using shadcn/ui)
+- src/lib/ — Utility functions and shared logic
+- src/server/ — Server-side logic (tRPC routers)
+- prisma/ — Database schema and migrations
 
-## Database
-- Schema in prisma/schema.prisma
-- Migration command: npx prisma migrate dev
+## Coding Conventions
+- Use function components + Hooks; no class components
+- State management with Zustand, not Redux
+- All APIs via tRPC; do not write REST routes
+- CSS via Tailwind; do not write custom CSS files
 
-## Important Notes
-- Do not modify files under /lib/legacy/ — that is legacy code
+## Important Constraints
+- Do not modify src/lib/legacy/ — legacy code, slated for removal next quarter
 - Tests must pass before committing
-- Use Chinese comments
+- All database changes must include migration files
+- Environment variable templates are in .env.example
 ```
 
-**Why this matters**: Source code analysis shows that CLAUDE.md content is injected into the system prompt on **every turn**, directly influencing the model's behavior.
+**Why this works**:
+- The model does not need to spend tokens exploring the tech stack → saves 30%+ tokens
+- Coding conventions are injected directly → reduces rework
+- Constraints are stated up front → prevents accidental mistakes
 
-#### Setting Up Permission Rules
+### 14.4 Permission Rule Configuration
+
+The most important configuration for first-time users — sensible permission rules make interactions much smoother:
 
 ```json
-// ~/.claude/settings.json
 {
   "permissions": {
     "rules": {
       "allow": [
         "FileRead",
         "FileEdit",
+        "FileWrite",
         "Glob",
         "Grep",
         "Bash(prefix:npm test)",
-        "Bash(prefix:npm run lint)",
+        "Bash(prefix:npm run)",
+        "Bash(prefix:pnpm )",
         "Bash(prefix:git status)",
         "Bash(prefix:git diff)",
-        "Bash(prefix:git log)"
+        "Bash(prefix:git log)",
+        "Bash(prefix:git branch)",
+        "Bash(prefix:ls)",
+        "Bash(prefix:cat)",
+        "Bash(prefix:pwd)",
+        "Bash(prefix:echo)",
+        "Bash(prefix:node -e)",
+        "Bash(prefix:npx tsc --noEmit)",
+        "Bash(prefix:npx prisma)"
       ],
       "deny": [
-        "Bash(prefix:rm -rf)",
+        "Bash(prefix:rm -rf /)",
         "Bash(prefix:sudo)",
-        "Bash(prefix:git push --force)"
+        "Bash(prefix:git push --force)",
+        "Bash(prefix:DROP )",
+        "Bash(prefix:TRUNCATE )"
       ]
     }
   }
 }
 ```
 
-### 14.2 Slash Command Quick Reference
+**Configuration principles**:
+| Category | Strategy | Example |
+|----------|----------|---------|
+| Read-only operations | Allow all | FileRead, Glob, Grep, git status |
+| Common project commands | Allow by prefix | npm test, npm run, pnpm |
+| File modifications | Allow (protected by Read) | FileEdit, FileWrite |
+| Dangerous operations | Deny | rm -rf /, sudo, force push |
+| Everything else | Default ask | Unmatched commands require confirmation |
 
-| Command | Function | When to Use |
-|---------|----------|-------------|
-| `/help` | Show help information | When unsure about features |
-| `/compact` | Compact context | When conversations get too long |
-| `/clear` | Clear conversation history | When starting a new topic |
-| `/status` | Show session status | Check token usage |
-| `/cost` | Show cost statistics | Track API spending |
-| `/model` | Switch model | Adjust speed/quality tradeoff |
-| `/commit` | Git commit | Auto-generate commit messages |
-| `/review` | Code review | Review PRs or changes |
-| `/mcp` | MCP management | Add/remove MCP servers |
-| `/config` | Configuration management | Modify settings |
-| `/resume` | Resume session | Continue previous work |
-| `/tasks` | Task management | View/manage task list |
-| `/permissions` | Permission management | Adjust permission rules |
-| `/hooks` | Hook management | View/configure hooks |
+### 14.5 Complete Slash Command Quick Reference
 
-### 14.3 Basic Usage Patterns
+| Command | Function | Key Usage |
+|---------|----------|-----------|
+| `/help` | Show help | List all available commands |
+| `/compact` | Compact context | Use when conversation gets too long; preserves key info |
+| `/clear` | Clear history | Start fresh; clears all context |
+| `/status` | Session status | View token usage and model info |
+| `/cost` | Cost statistics | Cumulative API cost for this session |
+| `/model` | Switch model | e.g. `/model sonnet` to switch to Sonnet |
+| `/commit` | Git commit | Auto-generate commit message and commit |
+| `/review` | Code review | Review changes on the current branch |
+| `/mcp` | MCP management | Add/remove/list MCP servers |
+| `/config` | Config management | View/modify settings.json |
+| `/resume` | Resume session | Resume a previously interrupted conversation |
+| `/tasks` | Task list | View Claude's task progress |
+| `/permissions` | Permission management | View/modify permission rules |
+| `/hooks` | Hook management | View/test configured hooks |
+| `/doctor` | Diagnostic check | Check for environment configuration issues |
+| `/fast` | Fast mode | Toggle Fast mode (same model, faster output) |
 
-#### Pattern 1: Exploratory Programming
+### 14.6 Six Essential Usage Patterns
+
+#### Pattern 1: Codebase Exploration
 
 ```
-You: Help me understand this project's structure, focusing on API routes
+You: Help me understand this project's structure, focusing on API routes and data models
 
-Claude Code will:
-├── Use Glob to search the file structure
-├── Use Grep to find API definitions
-├── Use Read to examine key files
-└── Generate a project structure overview
+# Behind the scenes — tool call chain:
+# Glob("**/*.ts") → discover file structure
+# Grep("router|route|endpoint") → locate API definitions
+# Read(key files) → deep understanding
+# Generate structured overview
 ```
 
-#### Pattern 2: Bug Fixing
+**Pro tip**: Giving a specific direction is 3x faster than open-ended exploration.
+
+#### Pattern 2: Bug Location & Fix
 
 ```
-You: The page goes blank after user login — please investigate and fix
+You: Users get "Cannot read property 'email' of undefined" when submitting the form,
+    the error occurs at src/components/UserForm.tsx line 42
 
-Claude Code will:
-├── Use Grep to search login-related code
-├── Use Read to examine related components
-├── Use Bash to run tests
-├── Use Edit to fix the bug
-└── Use Bash to verify the fix
+# Behind the scenes — execution chain:
+# Read(UserForm.tsx) → locate the error line
+# Grep("email") → trace the data flow
+# Read(related API) → understand the full chain
+# Edit(fix code) → apply the fix
+# Bash("npm test") → verify the fix
 ```
+
+**Pro tip**: Providing the error message and file location speeds up fixing by 5x.
 
 #### Pattern 3: Feature Development
 
 ```
-You: Add a user avatar upload feature with cropping support
-
-Claude Code will:
-├── Analyze existing code structure
-├── Create necessary new files
-├── Modify related components
-├── Write API routes
-├── Add tests
-└── Run tests to verify
+You: Add a user avatar upload feature. Requirements:
+    - Support JPG/PNG, max 5MB
+    - Upload to S3
+    - Store URL in database
+    - Frontend uses shadcn Upload component
 ```
 
-### 14.4 Shell Command Integration Tips
+**Pro tip**: Specifying the technology choices lets the model code directly, instead of asking you first.
 
-Use the `!` prefix in the Claude Code prompt to run interactive commands:
+#### Pattern 4: Code Refactoring
 
 ```
+You: Unify all fetch calls in src/utils/api.ts to use axios instead,
+    keep the interface signatures unchanged, and add unified error handling and retry logic
+```
+
+#### Pattern 5: Writing Tests
+
+```
+You: Write unit tests for src/server/routers/user.ts,
+    using Vitest + MSW to mock HTTP requests,
+    covering both happy paths and error paths
+```
+
+#### Pattern 6: Code Review
+
+```
+You: /review
+
+# Or a more targeted review
+You: Review recent changes in the src/auth/ directory,
+    focusing on security vulnerabilities and performance issues
+```
+
+### 14.7 Shell Integration Tips
+
+```bash
+# Run interactive commands inside Claude Code (! prefix)
 You: ! gcloud auth login
+You: ! docker-compose up -d
+You: ! npx prisma studio
 
-# Claude Code will execute the command in the current shell
-# Output flows directly into the conversation context
+# Pipe output to Claude (headless mode)
+git diff | claude -p "Review these changes"
+cat error.log | claude -p "Analyze these error logs"
+curl api.example.com/status | claude -p "Explain this API response"
+
+# Write Claude output to a file
+claude -p "Generate the contents of .github/workflows/ci.yml" > .github/workflows/ci.yml
+
+# Switch between projects
+You: Please switch the working directory to ../backend-service
+```
+
+### 14.8 Understanding Permission Prompts
+
+When Claude Code needs to perform a potentially risky operation, a permission prompt appears:
+
+```
+Claude wants to run: rm -rf dist/ && npm run build
+
+  [Y] Allow once       — Allow this time only
+  [A] Always allow      — Remember and always allow this pattern
+  [N] Deny             — Deny this time
+  [D] Always deny       — Remember and always deny
+
+Recommended strategy:
+├── Build/test commands → Always allow
+├── File deletion → Allow once (confirm, then allow once)
+├── Unfamiliar commands → Deny (learn about it first)
+└── Dangerous commands → Always deny (e.g. force push)
 ```
 
 ---
 
 ## Part 15: Power User Tips (Intermediate)
 
-### 15.1 Leveraging the Agent System for Parallel Work
+### 15.1 CLAUDE.md Master Class
 
-Source code analysis reveals that the Agent tool supports spawning multiple sub-agents in parallel. Take advantage of this:
-
-```
-You: Please do the following tasks simultaneously:
-    1. Review the security of the src/auth/ directory
-    2. Write unit tests for src/api/users.ts
-    3. Check the entire project for N+1 query issues
-
-# Claude Code will spawn 3 sub-agents in parallel
-# Each sub-agent works independently without interference
-# Results are aggregated and returned together
-```
-
-**Key finding**: The source code in `AgentTool.tsx` shows that sub-agents can be set to `isolation: "worktree"` to run in isolated Git worktrees, preventing file conflicts.
-
-### 15.2 Deep CLAUDE.md Utilization
-
-#### Multi-Level CLAUDE.md
+#### Layered Strategy: Global → Project → Rule Files
 
 ```
-~/.claude/CLAUDE.md                    # Global preferences
-├── "I am a senior TypeScript developer"
-├── "Prefer functional programming style"
-└── "Reply in Chinese"
+~/.claude/CLAUDE.md                    # Global preferences (shared across all projects)
+├── "I am a senior full-stack developer with 10 years of experience"
+├── "Prefer functional programming and immutable data"
+├── "Reply in English; keep technical terms as-is"
+├── "Write code comments in English"
+└── "Do not explain basic concepts; give solutions directly"
 
-project-root/CLAUDE.md                 # Project-level config
-├── "Use pnpm instead of npm"
-├── @./docs/architecture.md            # Reference architecture docs
-└── @./docs/api-spec.md               # Reference API spec
+project-root/CLAUDE.md                 # Project configuration
+├── Tech stack, dev commands, directory structure
+├── @./docs/architecture.md            # Reference architecture doc
+├── @./docs/api-spec.md               # Reference API spec
+└── @./CONTRIBUTING.md                 # Reference contribution guide
 
-project-root/.claude/rules/security.md # Security rules
-├── "All user input must be escaped"
-└── "Do not use eval() or innerHTML"
+.claude/rules/security.md              # Security rules
+├── "All user input must be validated with zod"
+├── "SQL queries must go through Prisma ORM only"
+├── "Do not use eval(), innerHTML, or dangerouslySetInnerHTML"
+└── "API routes must verify JWT tokens"
 
-project-root/.claude/rules/testing.md  # Testing rules
-├── "All new features must have unit tests"
+.claude/rules/style.md                 # Style rules
+├── "React components use PascalCase"
+├── "Utility functions use camelCase"
+├── "Constants use UPPER_SNAKE_CASE"
+├── "File names use kebab-case"
+└── "Each file should not exceed 200 lines"
+
+.claude/rules/testing.md               # Testing rules
+├── "New features must have unit tests"
+├── "Test files go in __tests__/ directories"
+├── "Use describe/it structure"
+├── "Mock external services, do not mock internal modules"
 └── "Test coverage must not drop below 80%"
 ```
 
-#### @include in Practice
+#### CLAUDE.md Templates for Different Project Types
+
+**Frontend React project**:
+```markdown
+# Frontend Project
+
+## Stack: React 18 + TypeScript + Vite + Zustand + React Query
+
+## Commands
+- `pnpm dev` — Dev server on :5173
+- `pnpm test` — Vitest
+- `pnpm storybook` — Component showcase
+
+## Conventions
+- Prefer server components where possible
+- Use React Query for all API calls, no raw fetch
+- All forms use react-hook-form + zod
+- Components: src/components/{feature}/{ComponentName}.tsx
+- Hooks: src/hooks/use{HookName}.ts
+- Never use `any` type — prefer `unknown` + type guard
+
+## Key APIs
+- Auth: /api/auth/* (NextAuth)
+- Data: /api/trpc/* (tRPC)
+```
+
+**Backend Python project**:
+```markdown
+# Backend Service
+
+## Stack: Python 3.12 + FastAPI + SQLAlchemy 2.0 + Alembic + pytest
+
+## Commands
+- `uv run uvicorn app.main:app --reload` — Dev server
+- `uv run pytest` — Tests
+- `uv run alembic upgrade head` — Run migrations
+- `uv run mypy .` — Type check
+
+## Conventions
+- Use async/await everywhere
+- Type hints on all functions
+- Pydantic models for request/response
+- One router file per resource in app/routers/
+- Business logic in app/services/, not in routers
+- Database models in app/models/
+
+## Important
+- Never use raw SQL strings — always use SQLAlchemy
+- All endpoints need OpenAPI docs (docstring + response_model)
+- Environment variables via app/config.py (pydantic-settings)
+```
+
+**Infrastructure / DevOps project**:
+```markdown
+# Infrastructure
+
+## Stack: Terraform + AWS + Docker + GitHub Actions
+
+## Commands
+- `terraform plan` — Preview changes
+- `terraform apply` — Apply changes (DANGEROUS)
+- `docker compose up -d` — Local stack
+
+## Rules
+- NEVER run terraform apply without showing me the plan first
+- NEVER modify production tfvars files
+- All resources must have proper tags
+- Use modules from modules/ directory
+- State is in S3 — do not modify backend config
+```
+
+#### Advanced @include Usage
 
 ```markdown
 # CLAUDE.md
 
-## Project Documentation
-@./README.md
-@./docs/CONTRIBUTING.md
-@./docs/API.md
+## Core documentation (auto-injected into every conversation turn)
+@./docs/architecture.md
+@./docs/api-spec.md
+@./CONVENTIONS.md
 
-## Code Standards
-@./.eslintrc.json
-@./tsconfig.json
+## Conditional references
+@./docs/database-schema.sql
+@./openapi.yaml
+
+## Notes
+# @include file contents count toward the 40,000-character limit
+# Prefer referencing concise documents; do not reference entire READMEs
+# If a file does not exist, it will be silently ignored
 ```
 
-### 15.3 Extending Capabilities with MCP Servers
+### 15.2 Prompt Engineering Compendium (15 Practical Patterns)
 
-#### Common MCP Server Configurations
+Effective prompt patterns derived from system prompt source code analysis:
+
+#### Pattern 1: Precise Targeting
+
+```
+BAD:  "Help me fix this file"
+BAD:  "The login feature has a bug"
+GOOD: "Modify the getUser function in src/api/users.ts:42,
+       change the database query from findFirst to findUnique,
+       because the id field is unique"
+```
+
+#### Pattern 2: Context Preloading
+
+```
+You: First read the following files and understand the data flow before answering:
+    - src/models/user.ts
+    - src/server/routers/user.ts  
+    - src/components/UserProfile.tsx
+    Then tell me, if I want to add a "user address" field,
+    which files need to be changed and in what order?
+```
+
+**Rationale**: The Read tool in the source code is far more efficient than Bash(cat) and populates the file cache.
+
+#### Pattern 3: Step-by-Step Confirmation
+
+```
+You: I need to migrate the database from MySQL to PostgreSQL.
+    Please follow these steps, waiting for my confirmation after each one:
+    1. Analyze all uses of MySQL-specific syntax
+    2. List the files that need to be modified
+    3. Modify the ORM configuration
+    4. Modify data type mappings
+    5. Modify raw SQL queries
+    6. Update tests
+```
+
+#### Pattern 4: Role Assignment
+
+```
+You: You are now a security audit expert. Perform a comprehensive
+    security review of the src/auth/ directory, checking against
+    each item in the OWASP Top 10, and assign a severity rating
+    (Critical/High/Medium/Low)
+```
+
+#### Pattern 5: Comparative Analysis
+
+```
+You: Compare the implementations of src/services/old-payment.ts and
+    src/services/new-payment.ts.
+    Does the new version fully cover all functionality of the old version?
+    Are there any edge cases that were missed?
+```
+
+#### Pattern 6: Reverse Engineering
+
+```
+You: Read src/lib/encryption.ts, explain the encryption flow,
+    draw a data flow diagram, and annotate the input/output types at each step
+```
+
+#### Pattern 7: Constraint-Driven
+
+```
+You: Implement a cache module with these constraints:
+    - Zero external dependencies
+    - TTL support
+    - LRU eviction support
+    - Thread-safe
+    - Single file, no more than 100 lines
+```
+
+#### Pattern 8: Test-Driven Development (TDD)
+
+```
+You: Implement an email validation function using TDD:
+    1. Write the test cases first (normal, boundary, error)
+    2. Run tests to confirm they all fail
+    3. Implement the minimum code to make tests pass
+    4. Refactor
+```
+
+#### Pattern 9: Batch Operations
+
+```
+You: Across the entire project:
+    1. Replace all console.log with logger.debug
+    2. Replace all console.error with logger.error
+    3. Add import { logger } from '@/lib/logger' at the top of each file
+    4. Make sure nothing is missed, and run tests to verify
+```
+
+#### Pattern 10: Documentation Generation
+
+```
+You: Generate Markdown documentation for all API endpoints in
+    src/server/routers/, in this format:
+    ## [Endpoint Name]
+    - Method: GET/POST/...
+    - Path: /api/...
+    - Parameters: {...}
+    - Response: {...}
+    - Example: curl ...
+```
+
+#### Pattern 11: Progressive Refactoring
+
+```
+You: Refactor src/utils/helpers.ts into smaller modules,
+    but ensure backward compatibility:
+    - Put refactored code into src/utils/ subdirectories
+    - Change the original file to re-export
+    - Run tests to make sure nothing breaks
+```
+
+#### Pattern 12: Error Handling Enhancement
+
+```
+You: Review all routes under src/api/ and find places with missing error handling:
+    - Async operations without try-catch
+    - Endpoints without input validation
+    - Places not returning proper error codes
+    Fix all issues, consistently using the project's AppError class
+```
+
+#### Pattern 13: Performance Analysis
+
+```
+You: Analyze performance issues in src/pages/dashboard.tsx:
+    - Find unnecessary re-renders
+    - Check for N+1 queries
+    - Check for memory leak risks
+    - Suggest usage of React.memo / useMemo / useCallback
+    Give concrete code changes, not just advice
+```
+
+#### Pattern 14: Migration Scripts
+
+```
+You: Write a data migration script scripts/migrate-user-roles.ts:
+    - Migrate from user.role (string) to a user_roles table (many-to-many)
+    - Support rollback
+    - Include progress output
+    - Handle interrupted resume
+    - Dry-run mode
+```
+
+#### Pattern 15: Parallel Agent Delegation
+
+```
+You: Execute the following independent tasks in parallel:
+    1. [Explore Agent] Analyze all third-party API integration points in the project
+    2. [General Agent] Write unit tests for UserService
+    3. [Explore Agent] List all environment variables and their purposes
+
+# Source code shows Claude Code will automatically:
+# - Create an independent sub-agent for each task
+# - Select the best agent type based on the task (Explore for read-only searches)
+# - Execute in parallel, aggregate results
+```
+
+### 15.3 Agent Parallel Work in Detail
+
+#### Understanding Agent Type Selection
+
+```
+Agent types and their use cases (from source code analysis):
+
+general-purpose     → Complex tasks requiring read/write operations
+                      Has all tools, most versatile
+
+Explore             → Codebase search and analysis
+                      Read-only tools only, faster
+                      Best for "find", "analyze", "understand"
+
+Plan                → Designing implementation plans
+                      Read-only + cannot edit/write
+                      Best for "how to implement", "design a plan"
+
+claude-code-guide   → Help with Claude Code itself
+                      Glob, Grep, Read, WebFetch, WebSearch
+```
+
+#### Efficient Parallel Patterns
+
+```
+You: I need to release a new version. Please complete in parallel:
+    1. Run all tests and report results
+    2. Check whether there are uncommitted files
+    3. Review all commits since the last release
+    4. Check whether the package.json version has been updated
+
+# Claude Code will launch 4 agents in parallel
+# All results are aggregated as each agent completes
+```
+
+#### Worktree Isolation Experiments
+
+```
+You: Please try upgrading React to v19 in an isolated environment,
+    test whether all components are compatible, and do not affect the current code
+
+# Claude Code will:
+# 1. git worktree add → create an independent repository copy
+# 2. Execute all modifications and tests in the worktree
+# 3. Success → return the worktree path and branch name for you to merge
+# 4. Failure → automatically clean up, report which components are incompatible
+```
+
+### 15.4 MCP Server Practical Configuration
+
+#### Common MCP Server Combinations for Developers
 
 ```json
 {
   "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
-    },
     "github": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
@@ -1634,20 +2051,373 @@ project-root/.claude/rules/testing.md  # Testing rules
     "postgres": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-postgres"],
-      "env": { "DATABASE_URL": "${DATABASE_URL}" }
+      "env": { "DATABASE_URL": "postgresql://localhost:5432/mydb" }
     },
-    "slack": {
+    "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-slack"],
-      "env": { "SLACK_TOKEN": "${SLACK_TOKEN}" }
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/docs"]
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": { "BRAVE_API_KEY": "${BRAVE_API_KEY}" }
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"]
     }
   }
 }
 ```
 
-### 15.4 Hook-Based Workflow Automation
+#### MCP Server Use Cases
 
-#### Auto-Format Code
+| MCP Server | Unlocked Capabilities | Example Usage |
+|-----------|----------------------|---------------|
+| **GitHub** | PR/Issue management | "Create a PR", "View Issue #42" |
+| **PostgreSQL** | Direct database queries | "Show recently registered users", "Analyze table structure" |
+| **Filesystem** | Access files outside the project | "Read ~/Documents/spec.pdf" |
+| **Memory** | Persistent memory across sessions | "Remember this architecture decision" |
+| **Brave Search** | Search for the latest information | "Search for React 19 breaking changes" |
+| **Puppeteer** | Browser automation | "Take a screenshot of the page", "Test form submission" |
+| **Slack** | Send notifications | "Post the test results to the #dev channel" |
+| **Linear/Jira** | Task management | "Update the Linear ticket status" |
+
+### 15.5 Hook Automation Workflow Library
+
+#### Hook 1: Auto-Format (Format on Save)
+
+```json
+{
+  "event": "PostToolUse",
+  "matcher": "FileEdit|FileWrite",
+  "handler": {
+    "type": "script",
+    "command": "npx prettier --write \"$TOOL_INPUT_FILE_PATH\" 2>/dev/null; echo '{\"continue\":true}'"
+  }
+}
+```
+
+#### Hook 2: Auto-Lint Check
+
+```json
+{
+  "event": "PostToolUse",
+  "matcher": "FileEdit",
+  "handler": {
+    "type": "script",
+    "command": "npx eslint \"$TOOL_INPUT_FILE_PATH\" --fix 2>&1 | tail -5; echo '{\"continue\":true}'"
+  }
+}
+```
+
+#### Hook 3: Sensitive File Protection
+
+```json
+{
+  "event": "PreToolUse",
+  "matcher": "FileEdit|FileWrite",
+  "handler": {
+    "type": "javascript",
+    "code": "module.exports = async ({input}) => { const p = input.file_path || ''; if (p.includes('.env') || p.includes('credentials') || p.includes('secret')) return {hookSpecificOutput: {permissionDecision: 'deny'}, reason: 'Protected file'}; return {continue: true}; }"
+  }
+}
+```
+
+#### Hook 4: Commit Message Convention Check
+
+```json
+{
+  "event": "PreToolUse",
+  "matcher": "Bash",
+  "handler": {
+    "type": "javascript",
+    "code": "module.exports = async ({input}) => { const cmd = input.command || ''; if (cmd.startsWith('git commit') && !cmd.match(/\\b(feat|fix|docs|style|refactor|test|chore)\\b/)) return {hookSpecificOutput: {permissionDecision: 'deny'}, reason: 'Commit message must follow conventional format'}; return {continue: true}; }"
+  }
+}
+```
+
+#### Hook 5: TypeScript Type Check Gate
+
+```json
+{
+  "event": "PostToolUse",
+  "matcher": "FileEdit",
+  "handler": {
+    "type": "script",
+    "command": "if echo \"$TOOL_INPUT_FILE_PATH\" | grep -qE '\\.(ts|tsx)$'; then npx tsc --noEmit 2>&1 | tail -10; fi; echo '{\"continue\":true}'"
+  }
+}
+```
+
+#### Hook 6: Auto-Run Related Tests
+
+```json
+{
+  "event": "PostToolUse",
+  "matcher": "FileEdit",
+  "handler": {
+    "type": "script",
+    "command": "TEST_FILE=$(echo \"$TOOL_INPUT_FILE_PATH\" | sed 's/\\.ts$/.test.ts/' | sed 's/\\.tsx$/.test.tsx/'); if [ -f \"$TEST_FILE\" ]; then npx vitest run \"$TEST_FILE\" 2>&1 | tail -10; fi; echo '{\"continue\":true}'"
+  }
+}
+```
+
+### 15.6 Advanced Session Management
+
+#### Session Recovery and Continuation
+
+```bash
+# List recent sessions
+claude --resume
+
+# Resume a specific session
+claude --resume [session-id]
+
+# Tip: name your sessions
+You: Please name the current session "user system refactor"
+# You can then search by name to resume later
+```
+
+#### Context Management Strategy
+
+```
+Context management timeline for long tasks:
+
+Phase 1 (0-30% context): Free exploration and coding
+        ↓
+Phase 2 (30-60%): Start using context strategically
+        ├── Use Grep instead of reading full files
+        ├── Give precise line number ranges
+        └── Use concise instructions
+        ↓
+Phase 3 (60-80%): Active management
+        ├── /compact to compress non-critical history
+        ├── Split large tasks into new sessions
+        └── Use Agent to delegate independent sub-tasks
+        ↓
+Phase 4 (80%+): Auto-Compact triggers
+        └── System compacts automatically; early details may be lost
+        
+Best practice: Proactively /compact during Phases 2-3
+```
+
+### 15.7 Git Workflow Integration
+
+#### Smart Commit
+
+```
+You: /commit
+
+# Claude Code will:
+# 1. git status to see changes
+# 2. git diff to analyze all modifications
+# 3. git log to reference historical style
+# 4. Generate a well-formatted commit message
+# 5. Execute git commit
+
+# Tip: giving a direct instruction is more efficient
+You: Commit all recent changes; use conventional commits format for the commit message
+```
+
+#### Code Review Workflow
+
+```
+You: /review
+
+# Or a more precise review
+You: Review all changes on the current branch relative to main, focusing on:
+    1. Security vulnerabilities
+    2. Performance issues
+    3. Code style consistency
+    4. Test coverage
+    Give specific improvement suggestions with code examples
+
+# Review a PR
+You: Review the code in GitHub PR #123
+```
+
+#### Branch Management
+
+```
+You: Create a new branch feature/user-avatar from main,
+    then implement the user avatar feature
+
+You: Does the current branch have conflicts with main? If so, help me resolve them
+
+You: Squash the 3 commits on the current branch into one,
+    and generate a clear commit message
+```
+
+### 15.8 Multi-File Refactoring Patterns
+
+```
+You: Migrate the project from CommonJS (require/module.exports)
+    to ESM (import/export):
+    1. First analyze how many files need to be changed
+    2. List the modification plan for my confirmation
+    3. Modify in dependency order (leaf files first)
+    4. Run tests after each batch of file changes
+    5. Update package.json and tsconfig.json
+
+# Claude Code will use Glob to find all files
+# Use Grep to analyze require/module.exports usage
+# Modify in topological order
+# Use Bash to run tests verifying each step
+```
+
+---
+
+## Part 16: Power User Tips (Advanced)
+
+### 16.1 Deep Understanding of the Permission System
+
+The **permission decision chain** discovered in the source code:
+
+```
+Tool call → Allow Rules → Deny Rules → Ask Rules 
+         → Permission Mode → YOLO Classifier → User Prompt
+
+Decision reason types (PermissionDecisionReason):
+├── classifier   — Auto mode classifier decision
+├── hook         — Decision returned by a hook
+├── rule         — Permission rule match
+├── mode         — Permission mode decision
+├── safetyCheck  — Safety check
+├── sandboxOverride — Sandbox override
+├── workingDir   — Working directory check
+└── asyncAgent   — Async agent
+```
+
+**Precise configuration strategy**:
+
+```json
+{
+  "permissions": {
+    "rules": {
+      "allow": [
+        "Bash(prefix:npm )",
+        "Bash(prefix:pnpm )",
+        "Bash(prefix:yarn )",
+        "Bash(prefix:node )",
+        "Bash(prefix:npx )",
+        "Bash(prefix:git status)",
+        "Bash(prefix:git diff)",
+        "Bash(prefix:git log)",
+        "Bash(prefix:git branch)",
+        "Bash(prefix:git stash)",
+        "Bash(prefix:docker compose)",
+        "Bash(prefix:docker ps)",
+        "Bash(prefix:curl )",
+        "Bash(prefix:cat )",
+        "Bash(prefix:ls )",
+        "Bash(prefix:find )",
+        "Bash(prefix:wc )",
+        "Bash(prefix:head )",
+        "Bash(prefix:tail )",
+        "Bash(prefix:grep )",
+        "Bash(prefix:echo )",
+        "Bash(prefix:pwd)",
+        "Bash(prefix:which )",
+        "Bash(prefix:env | grep)",
+        "FileRead",
+        "FileEdit",
+        "FileWrite",
+        "Glob",
+        "Grep",
+        "Agent",
+        "NotebookEdit",
+        "WebFetch",
+        "WebSearch"
+      ],
+      "deny": [
+        "Bash(prefix:rm -rf /)",
+        "Bash(prefix:sudo )",
+        "Bash(prefix:chmod 777)",
+        "Bash(prefix:git push --force)",
+        "Bash(prefix:git reset --hard)",
+        "Bash(prefix:DROP )",
+        "Bash(prefix:TRUNCATE )",
+        "Bash(prefix:shutdown)",
+        "Bash(prefix:reboot)",
+        "Bash(prefix:mkfs)"
+      ]
+    }
+  }
+}
+```
+
+### 16.2 Fine-Grained Token Budget Management
+
+#### Cost Estimation Formula (Derived from Source Code)
+
+```
+Per-conversation cost ≈ System prompt tokens × number of turns × input price
+                      + Total output tokens × output price
+                      + Tool call result tokens × input price
+
+Optimization levers (ranked by impact):
+1. Reduce system prompt size → keep CLAUDE.md concise
+2. Reduce turns → precise instructions + say everything at once
+3. Reduce tool calls → provide file paths to avoid searches
+4. Model selection → use Haiku for simple tasks
+5. Compact promptly → /compact to avoid redundancy
+```
+
+#### Cost Comparison by Task Type
+
+| Task Type | Estimated Turns | Estimated Cost | Optimization Tips |
+|-----------|----------------|----------------|-------------------|
+| Simple bug fix | 3-5 | $0.02-0.05 | Provide file path and line number |
+| Feature development | 10-20 | $0.10-0.30 | Step-by-step confirmation, preset in CLAUDE.md |
+| Code review | 5-10 | $0.05-0.15 | Use the built-in /review command |
+| Full project refactor | 30-60 | $0.50-2.00 | Split into sub-tasks, use parallel agents |
+| Documentation generation | 5-10 | $0.05-0.10 | Use templated output |
+
+#### Practical Cost-Saving Tips
+
+```
+Tip 1: Model Switching
+├── Complex architecture design → Opus (strongest reasoning)
+├── Daily coding → Sonnet (best cost-performance ratio)
+├── Simple changes/formatting → Haiku (cheapest)
+└── Switch command: /model sonnet
+
+Tip 2: Reduce Wasted Tokens
+├── Say "Don't explain, just change the code"
+├── Provide file paths instead of making it search
+├── Give all context at once, instead of asking incrementally
+└── Use Agent in parallel, not sequentially
+
+Tip 3: Smart Compact
+├── /compact immediately after completing a feature
+├── /compact when switching topics
+├── /compact when responses start getting slow
+└── Do not wait for Auto-Compact (by then many tokens are already wasted)
+```
+
+### 16.3 Building Complex Hook Pipelines
+
+#### AI-Driven Code Review Gate
+
+```json
+{
+  "event": "PreToolUse",
+  "matcher": "FileEdit",
+  "handler": {
+    "type": "agent",
+    "prompt": "Review the upcoming file edit. Check for:\n1. Security vulnerabilities (XSS, SQL injection, path traversal)\n2. Adherence to the DRY principle\n3. Obvious logic errors\n4. Unhandled edge cases\n\nIf Critical/High issues are found, block and explain why.\nOtherwise approve.",
+    "timeout": 30,
+    "model": "claude-haiku-4-5-20251001"
+  }
+}
+```
+
+#### Fully Automated Local CI Pipeline
 
 ```json
 {
@@ -1657,167 +2427,15 @@ project-root/.claude/rules/testing.md  # Testing rules
       "matcher": "FileEdit|FileWrite",
       "handler": {
         "type": "script",
-        "command": "npx prettier --write \"$TOOL_INPUT_FILE_PATH\" 2>/dev/null; echo '{\"continue\":true}'"
+        "command": "bash -c 'F=\"$TOOL_INPUT_FILE_PATH\"; npx prettier --write \"$F\" 2>/dev/null; if echo \"$F\" | grep -qE \"\\.(ts|tsx)$\"; then npx eslint --fix \"$F\" 2>&1 | tail -3; fi; echo \"{\\\"continue\\\":true}\"'"
       }
-    }
-  ]
-}
-```
-
-#### Auto-Run Tests
-
-```json
-{
-  "hooks": [
+    },
     {
       "event": "PostToolUse",
       "matcher": "FileEdit",
       "handler": {
         "type": "script",
-        "command": "if echo \"$TOOL_INPUT_FILE_PATH\" | grep -q '\\.test\\.'; then npm test -- --bail 2>&1 | tail -5; fi; echo '{\"continue\":true}'"
-      }
-    }
-  ]
-}
-```
-
-### 15.5 Session Management Tips
-
-#### Using /resume to Restore Work
-
-```
-# View previous sessions
-You: /resume
-
-# Resume a specific session
-You: /resume [session-id]
-
-# Claude Code will load the complete conversation history and context
-```
-
-#### Controlling Context Size
-
-```
-# When a conversation gets too long
-You: /compact
-
-# More aggressive compaction
-You: /compact --aggressive
-
-# Clear when starting a new topic
-You: /clear
-```
-
-### 15.6 Prompt Engineering Tips
-
-After analyzing the system prompt from the source code, here are the most effective prompt patterns:
-
-#### Precise Instruction Pattern
-
-```
-BAD:  "Help me fix this file"
-GOOD: "Modify the getUser function in src/api/users.ts,
-       change the database query from findFirst to findUnique,
-       because the ID is unique"
-```
-
-#### Context Preloading Pattern
-
-```
-You: First read src/models/user.ts and src/api/users.ts,
-     then tell me how the user data flows from API to database
-
-# This leverages the fact that the Read tool is more efficient
-# than Bash(cat) as revealed in the source code
-```
-
-#### Multi-Step Task Decomposition Pattern
-
-```
-You: I need to implement a user export feature. Please follow these steps:
-    1. First analyze the existing data models
-    2. Design the API interface
-    3. Implement the backend logic
-    4. Write tests
-    After completing each step, tell me your plan and wait for
-    my confirmation before proceeding
-```
-
----
-
-## Part 16: Power User Tips (Advanced)
-
-### 16.1 Deep Understanding of the Permission System
-
-**Permission decision reason types** (PermissionDecisionReason) discovered in the source code:
-
-```typescript
-type PermissionDecisionReason = 
-  | { type: 'classifier' }    // Auto mode classifier decision
-  | { type: 'hook' }          // Hook decision
-  | { type: 'rule' }          // Permission rule match
-  | { type: 'mode' }          // Permission mode decision
-  | { type: 'safetyCheck' }   // Safety check
-  | { type: 'sandboxOverride' } // Sandbox override
-  | { type: 'workingDir' }    // Working directory check
-  | { type: 'asyncAgent' }    // Async agent
-```
-
-**Practical application**: Understanding these decision types allows you to precisely configure rules to optimize the approval flow.
-
-### 16.2 Token Budget Management Strategies
-
-```
-Strategy 1: Budget-Aware Programming
-├── In large projects, prefer Glob + Grep over full-file Read
-├── Provide precise line ranges: Read(file, offset=100, limit=50)
-├── Use /compact at key checkpoints to compress context
-└── Split complex tasks into multiple smaller sessions
-
-Strategy 2: Understanding Auto-Compact Triggers
-├── Automatically triggers when context reaches 80% of model limit
-├── Compaction loses some early context details
-├── Use /compact manually before important context gets compacted
-└── Monitor /status or /cost to track current token usage
-
-Strategy 3: Prompt Cache Utilization
-├── Keep CLAUDE.md content stable (cache-friendly)
-├── Long conversations reuse the cached portion of the system prompt
-└── Avoid frequent config changes that invalidate the cache
-```
-
-### 16.3 Building Complex Hook Pipelines
-
-#### Agent Hook — AI-Driven Code Review
-
-```json
-{
-  "hooks": [
-    {
-      "event": "PreToolUse",
-      "matcher": "FileEdit",
-      "handler": {
-        "type": "agent",
-        "prompt": "Review the upcoming file edit. Check for:\n1. Security vulnerabilities (XSS, SQL injection, etc.)\n2. Compliance with project coding standards\n3. Obvious logic errors\n\nIf serious issues are found, return {decision: 'block', reason: '...'}.\nOtherwise return {decision: 'approve'}.",
-        "timeout": 30,
-        "model": "claude-haiku-4-5-20251001"
-      }
-    }
-  ]
-}
-```
-
-#### Multi-Stage Validation Pipeline
-
-```json
-{
-  "hooks": [
-    {
-      "event": "PostToolUse",
-      "matcher": "FileEdit",
-      "handler": {
-        "type": "script",
-        "command": "bash -c 'npx eslint --fix \"$TOOL_INPUT_FILE_PATH\" 2>&1; npx prettier --write \"$TOOL_INPUT_FILE_PATH\" 2>&1; echo \"{\\\"continue\\\":true}\"'"
+        "command": "bash -c 'F=\"$TOOL_INPUT_FILE_PATH\"; TF=$(echo \"$F\" | sed \"s/\\.ts$/.test.ts/;s/\\.tsx$/.test.tsx/\"); if [ -f \"$TF\" ]; then npx vitest run \"$TF\" --reporter=verbose 2>&1 | tail -15; fi; echo \"{\\\"continue\\\":true}\"'"
       }
     },
     {
@@ -1825,79 +2443,208 @@ Strategy 3: Prompt Cache Utilization
       "matcher": "Bash",
       "handler": {
         "type": "javascript",
-        "code": "module.exports = async ({input}) => { if (input.command?.includes('test') && input.exitCode !== 0) { return {continue: true, systemMessage: 'WARNING: Tests failed, please fix and retry'}; } return {continue: true}; }"
+        "code": "module.exports = async ({input}) => { const c = input.command||''; if (c.includes('git commit')) { const r = require('child_process').execSync('npx tsc --noEmit 2>&1 || true').toString(); if (r.includes('error TS')) return {continue:true, systemMessage:'TypeScript errors found, fix before committing: '+r.slice(0,500)}; } return {continue:true}; }"
       }
     }
   ]
 }
 ```
 
-### 16.4 Using Worktree Isolation for Experiments
+### 16.4 SDK / Headless Mode Integration
 
-The `worktree` isolation mode discovered in the source code:
-
-```
-You: Please try migrating the ORM from Prisma to Drizzle in an isolated
-     environment — don't affect the current code
-
-# Claude Code will:
-# 1. Create a Git worktree (independent repository copy)
-# 2. Execute all modifications in the worktree
-# 3. If successful, return the worktree path and branch name
-# 4. If it fails, automatically clean up the worktree
-```
-
-### 16.5 SDK Mode Integration
+#### Calling Claude Code from Scripts
 
 ```typescript
-// Call Claude Code from your own scripts
-import { QueryEngine } from '@anthropic-ai/claude-code';
+// script.ts — batch code analysis
+import Anthropic from "@anthropic-ai/sdk";
 
-const engine = new QueryEngine({
-  cwd: '/path/to/project',
-  tools: getAllBaseTools(),
-  // ... configuration
-});
+// Claude Code SDK mode
+const client = new Anthropic();
 
-// Submit a query and receive streaming results
-for await (const event of engine.submitMessage('Analyze project dependency security')) {
-  if (event.type === 'message') {
-    console.log(event.content);
-  }
+// You can also use the CLI's -p mode directly
+import { execSync } from "child_process";
+
+// Analyze security of multiple files
+const files = ["src/auth.ts", "src/api.ts", "src/db.ts"];
+for (const file of files) {
+  const result = execSync(
+    `claude -p "Analyze security risks in ${file}, output in JSON format" --output-format json`,
+    { encoding: "utf-8" }
+  );
+  console.log(`${file}: ${result}`);
 }
 ```
 
-### 16.6 Performance Optimization Tips
+#### CI/CD Integration
 
-| Tip | Rationale | Impact |
-|-----|-----------|--------|
-| Pre-populate CLAUDE.md | Injected into system prompt, reduces exploration overhead | -30% tokens |
-| Use specific file paths | Avoids Glob searches | Faster responses |
-| Batch large tasks | Use /compact to control context | More stable |
-| Configure allow rules | Reduces permission prompt interactions | Smoother flow |
-| Use parallel Agents | Sub-agents work independently in parallel | Higher throughput |
-| Leverage MCP tools | Extend the tool set | Greater capabilities |
+```yaml
+# .github/workflows/claude-review.yml
+name: Claude Code Review
+on: [pull_request]
 
-### 16.7 Debugging & Diagnostics
-
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+      
+      - name: Run Review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          DIFF=$(git diff origin/main...HEAD)
+          claude -p "Review the following diff, find bugs and security issues:\n$DIFF" \
+            --output-format json > review.json
+      
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const review = require('./review.json');
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: review.result
+            });
 ```
-# Enable verbose mode
-Set "verbose": true in settings.json
 
-# View session status
-/status
+### 16.5 Creating Custom Agents
 
-# View token usage and costs
-/cost
+```json
+// ~/.claude/agents/security-auditor.json
+{
+  "agentType": "security-auditor",
+  "name": "Security Auditor",
+  "description": "An agent specialized in code security auditing",
+  "whenToUse": "When you need security reviews, vulnerability detection, or compliance checks",
+  "tools": ["FileRead", "Glob", "Grep", "Bash", "WebSearch"],
+  "disallowedTools": ["FileEdit", "FileWrite"],
+  "systemPrompt": "You are a senior security engineer focused on:\n1. OWASP Top 10 vulnerability detection\n2. Dependency security auditing\n3. Authentication/authorization logic review\n4. Sensitive data leakage prevention\n5. Input validation completeness\n\nOutput format:\n- Severity: Critical/High/Medium/Low/Info\n- Location: file_path:line_number\n- Description: Issue description\n- Remediation: Specific code example"
+}
 
-# Analyze context window usage
-# (analyzeContext.ts in the source provides this functionality)
+// ~/.claude/agents/db-expert.json
+{
+  "agentType": "db-expert",
+  "name": "Database Expert",
+  "description": "Database design and query optimization expert",
+  "whenToUse": "When you need database design, query optimization, or migrations",
+  "tools": ["FileRead", "Glob", "Grep", "Bash"],
+  "systemPrompt": "You are a PostgreSQL database expert skilled in:\n1. Schema design and normalization\n2. Query performance optimization (EXPLAIN ANALYZE)\n3. Indexing strategies\n4. Data migration scripts\n5. Connection pooling and concurrency handling"
+}
 
-# View current configuration
-/config
+// ~/.claude/agents/doc-writer.json
+{
+  "agentType": "doc-writer",
+  "name": "Documentation Writer",
+  "description": "Technical documentation and API documentation writing expert",
+  "whenToUse": "When you need to write documentation, READMEs, or API docs",
+  "tools": ["FileRead", "FileWrite", "Glob", "Grep"],
+  "systemPrompt": "You are a technical documentation expert. Your output must:\n1. Have clear structure with heading hierarchy\n2. Include code examples\n3. Include request/response examples for API docs\n4. Target developers as the audience\n5. Use Markdown format"
+}
+```
 
-# Diagnose issues
-/doctor
+**Usage**:
+```
+You: Use the security-auditor agent to review the entire src/auth/ directory
+
+You: Use the db-expert agent to optimize this slow query:
+    SELECT * FROM orders JOIN users ON ...
+```
+
+### 16.6 Performance Optimization Checklist
+
+| # | Tip | Rationale (Source Code Basis) | Expected Impact |
+|---|-----|------------------------------|-----------------|
+| 1 | Write a good CLAUDE.md | Injected into system prompt, reduces exploration | Tokens -30% |
+| 2 | Provide file paths | Skips Glob searches | 2x faster responses |
+| 3 | Provide line number ranges | Read(offset, limit) reduces data read | Tokens -50%/file |
+| 4 | Give all info at once | Reduces back-and-forth turns | Turns -60% |
+| 5 | Use parallel Agents | Sub-agents have independent contexts | 3x speed |
+| 6 | /compact promptly | Reduces per-turn token consumption | 2x endurance for long conversations |
+| 7 | Configure allow rules | Reduces permission interaction waits | +50% fluency |
+| 8 | Use Grep instead of Read | Fetches only relevant lines | Tokens -80%/search |
+| 9 | Use Haiku for simple tasks | Model downgrade | Cost -90% |
+| 10 | Batch operations at once | Reduces round trips | +200% efficiency |
+
+### 16.7 Complete Debugging & Diagnostics Guide
+
+```bash
+# ──────── Session Info ────────
+/status          # Token usage, model, session ID
+/cost            # Cumulative cost for this session
+/config          # Current configuration details
+
+# ──────── Environment Diagnostics ────────
+/doctor          # Check environment, dependencies, configuration issues
+
+# ──────── Context Diagnostics ────────
+/compact         # View context usage + compress
+                 # analyzeContext.ts in the source computes:
+                 # - Message token count
+                 # - System prompt token count
+                 # - Remaining budget
+                 # - Whether compaction is needed
+
+# ──────── Verbose Mode ────────
+# Set in settings.json
+{ "verbose": true }
+# This will show:
+# - Token consumption for each API call
+# - Detailed tool call parameters
+# - Permission decision reasons
+# - Hook execution results
+
+# ──────── Quick Troubleshooting ────────
+
+Problem: Responses getting slower and slower
+Cause:   Context approaching the limit
+Fix:     /compact or /clear and start fresh
+
+Problem: Permission prompts too frequent
+Cause:   Not enough allow rules
+Fix:     Add commonly used commands to the allow rules
+
+Problem: Claude forgot earlier discussion
+Cause:   Auto-Compact compressed early context
+Fix:     Write key information into CLAUDE.md or re-state it
+
+Problem: MCP server connection failed
+Cause:   Config error or process not started
+Fix:     /mcp to check status, verify command paths
+
+Problem: File edit results are wrong
+Cause:   old_string is not unique or has hidden characters
+Fix:     Provide more context to make old_string unique
+
+Problem: Sub-agent not producing expected results
+Cause:   Prompt too vague
+Fix:     Give specific file paths, expected outcomes, and constraints
+```
+
+### 16.8 Multi-Project Coordination
+
+```bash
+# Switch projects within the same session
+You: Switch to the ../api-service directory
+
+# Use addDir to add additional working directories
+You: /addDir ../shared-types
+# Now Claude Code can access both projects simultaneously
+
+# Cross-project operation example
+You: I modified the User type in shared-types/src/user.ts.
+    Please check everywhere in api-service and web-app that uses the User type,
+    and see which ones need to be updated
+
+# Usage with microservice architectures
+You: Analyze the API call relationships between api-gateway, user-service,
+    and order-service, and draw a dependency graph
 ```
 
 ---
@@ -2063,6 +2810,404 @@ Bootstrap State (bootstrap/state.ts):
 ├── Global mutable state
 ├── Available before React renders
 └── For SDK/headless mode
+```
+
+---
+
+## Part 21: Practical Workflow Recipes
+
+> This chapter provides 10 complete real-world scenarios, each with specific prompts, expected behavior, and best practices.
+
+### Recipe 1: Full-Stack Feature Development (User Notification System)
+
+```
+You: I need to implement a user notification system, including:
+    - Database: notifications table (id, user_id, type, title, body, read, created_at)
+    - API: GET /notifications, POST /notifications/read/:id, GET /notifications/unread-count
+    - Frontend: notification bell icon + dropdown list + unread count badge
+    - Real-time: WebSocket push for new notifications
+
+    Please implement in this order:
+    1. Database migration
+    2. Backend API
+    3. WebSocket handling
+    4. Frontend components
+    5. Integration tests
+    Run tests after each step to confirm
+
+Expected behavior:
+├── Claude reads existing code to understand the architecture
+├── Creates Prisma migration
+├── Implements tRPC router
+├── Adds WebSocket handler
+├── Creates React components
+├── Writes tests
+└── Runs all tests to confirm they pass
+```
+
+### Recipe 2: Bug Investigation & Fix (Production Issue)
+
+```
+You: Production is reporting the following error, approximately 50 times per day:
+    
+    Error: Connection pool exhausted
+    at PostgresPool.acquire (src/db/pool.ts:45)
+    at UserRepository.findById (src/repos/user.ts:23)
+    at AuthMiddleware.verify (src/middleware/auth.ts:67)
+    
+    Please:
+    1. Analyze possible root causes (do not rush to fix)
+    2. Check connection pool configuration and usage patterns
+    3. Search all database connection usage to find leak points
+    4. Propose a fix plan for my confirmation
+    5. Implement the fix once confirmed
+    6. Add monitoring/alerting code to prevent recurrence
+
+Expected behavior:
+├── Read pool.ts:45 and surrounding code
+├── Grep to search all database connection usage
+├── Analyze connection release patterns (are connections left unclosed?)
+├── Check error handling in transactions (is release in finally?)
+├── Propose a plan (wait for confirmation)
+├── Fix the code
+└── Add connection pool monitoring middleware
+```
+
+### Recipe 3: Legacy Code Modernization
+
+```
+You: The src/legacy/ directory contains Express.js code written in 2019.
+    I need to gradually migrate it to the existing Next.js App Router architecture.
+    
+    Rules:
+    - Migrate only one endpoint at a time
+    - Keep old code functional until new code passes tests
+    - Maintain backward compatibility (same request/response format)
+    - Use Prisma to replace raw SQL
+    
+    Please first analyze what endpoints exist in src/legacy/,
+    sort them by complexity, and start migrating from the simplest.
+
+Expected behavior:
+├── Glob and Grep to analyze the legacy directory
+├── List all endpoints with their complexity
+├── Starting from the simplest:
+│   ├── Read the old implementation
+│   ├── Create new App Router version
+│   ├── Convert raw SQL to Prisma
+│   ├── Write tests
+│   ├── Run tests to confirm
+│   └── Report completion, continue to next
+└── Each endpoint is completed and verified independently
+```
+
+### Recipe 4: API Design & Implementation
+
+```
+You: Design a RESTful API for a blog system. Requirements:
+    - Resources: posts, comments, tags, users
+    - Authentication: JWT
+    - Pagination: cursor-based
+    - Filtering: support multiple fields
+    - Sorting: support multiple fields
+    
+    Please design the API documentation (OpenAPI format) first,
+    then implement only after I confirm.
+
+Expected behavior:
+├── Generate OpenAPI YAML specification
+├── Wait for user confirmation
+├── Implement database schema
+├── Implement each endpoint
+├── Add middleware (auth, pagination, validation)
+├── Write integration tests
+└── Generate API documentation
+```
+
+### Recipe 5: Database Schema Changes
+
+```
+You: I need to change the user system from single-role to multi-role:
+    - Current: users table has a role string field
+    - Target: roles table + user_roles join table
+    - Requirements:
+      1. Create migration script
+      2. Data migration (preserve existing role data)
+      3. Update all code that uses user.role
+      4. Update API response format
+      5. Support rollback
+    
+    Important: First generate a dry-run migration plan,
+    listing all files that will be affected
+
+Expected behavior:
+├── Analyze all usage points of user.role
+├── Generate impact analysis report
+├── Create migration file (including data migration)
+├── Modify ORM models
+├── Update all referencing code
+├── Update the API layer
+├── Write tests
+└── Verify that rollback works
+```
+
+### Recipe 6: Performance Optimization
+
+```
+You: The dashboard page takes 8 seconds to load, which is too slow.
+    The page component is src/pages/dashboard/index.tsx
+    
+    Please analyze and optimize completely:
+    1. Check API calls (are there serial requests that should be parallel?)
+    2. Check database queries (N+1, missing indexes)
+    3. Check frontend rendering (unnecessary re-renders)
+    4. Check data size (are we fetching unneeded fields?)
+    5. Suggest caching strategies
+    
+    Give the expected performance improvement for each optimization
+
+Expected behavior:
+├── Read the dashboard component code
+├── Trace all API calls → look for serial/waterfall requests
+├── Trace SQL queries → look for N+1 and full table scans
+├── Analyze React rendering → look for unnecessary state changes
+├── Propose optimization plan (each with expected benefit)
+├── Implement optimizations
+├── Add performance marks for verification
+└── Run tests to confirm functionality is unaffected
+```
+
+### Recipe 7: Security Audit
+
+```
+You: Perform a security audit of the entire project, checking against OWASP Top 10:
+    A01 - Broken Access Control
+    A02 - Cryptographic Failures
+    A03 - Injection
+    A04 - Insecure Design
+    A05 - Security Misconfiguration
+    A06 - Vulnerable and Outdated Components
+    A07 - Identification and Authentication Failures
+    A08 - Software and Data Integrity Failures
+    A09 - Security Logging and Monitoring Failures
+    A10 - Server-Side Request Forgery
+    
+    For each finding, provide: severity, file location, remediation
+
+Recommended combo: use the security-auditor custom Agent
+You: Use the security-auditor Agent to review these directories in parallel:
+    1. src/auth/
+    2. src/api/
+    3. src/middleware/
+```
+
+### Recipe 8: Batch Documentation Generation
+
+```
+You: Generate the following documentation for the project:
+    1. README.md — Project intro, installation, usage
+    2. API.md — All API endpoint docs (auto-generated from code)
+    3. ARCHITECTURE.md — Architecture overview + data flow diagram
+    4. CONTRIBUTING.md — Contribution guide
+    5. CHANGELOG.md — Changelog generated from git log
+    
+    Generate an outline for each document first for my confirmation
+
+Expected behavior:
+├── Glob + Grep to analyze project structure
+├── Generate outline for each document (wait for confirmation)
+├── Generate each document after confirmation
+├── API documentation extracted from actual code
+├── Architecture diagrams in Mermaid format
+└── CHANGELOG generated from git log
+```
+
+### Recipe 9: Test Suite Completion
+
+```
+You: The project currently has only 30% test coverage.
+    Please help me raise the core modules to 80% coverage:
+    
+    Priority:
+    1. src/server/routers/ — API routes (most important)
+    2. src/services/ — Business logic
+    3. src/utils/ — Utility functions
+    4. src/components/ — Critical interactive components
+    
+    Requirements:
+    - For each module, first analyze existing tests and find gaps
+    - Tests should cover: happy paths, edge cases, error handling
+    - Mock external dependencies, do not mock internal modules
+    - Run tests after completing each module
+
+Recommended: Use Agents in parallel to write tests for different modules
+```
+
+### Recipe 10: Dependency Upgrade
+
+```
+You: Project dependencies need major version upgrades:
+    - React 18 → 19
+    - Next.js 14 → 15
+    - TypeScript 5.3 → 5.5
+    
+    Please:
+    1. Test the upgrade in an isolated environment (worktree) first
+    2. List all breaking changes and affected code
+    3. Fix compatibility issues one by one
+    4. Run the full test suite
+    5. If everything passes, tell me how to merge
+
+Expected behavior:
+├── Create git worktree (isolated environment)
+├── Upgrade dependencies in the worktree
+├── npm install → check for peer dependency conflicts
+├── npm run build → collect compilation errors
+├── Fix each issue
+├── npm test → confirm all pass
+└── Return the worktree path for the user to merge
+```
+
+---
+
+## Part 22: Troubleshooting & Common Pitfalls
+
+### 22.1 Top 10 Common Issues
+
+| # | Problem | Symptoms | Root Cause | Solution |
+|---|---------|----------|------------|----------|
+| 1 | **Slow responses** | Wait time goes from seconds to minutes | Context approaching the limit | `/compact` or start a new session |
+| 2 | **Forgetting context** | Claude forgets earlier discussion | Auto-Compact compressed early messages | Write key information into CLAUDE.md |
+| 3 | **Frequent permission prompts** | Every operation requires confirmation | Not enough allow rules | Expand rules in settings.json |
+| 4 | **File edit failure** | "old_string not found" | String is not unique or has hidden characters | Provide more context to make old_string unique |
+| 5 | **MCP connection failure** | MCP server not responding | Wrong command path or missing dependencies | `/mcp` to check status, verify command |
+| 6 | **Sub-agent ineffective** | Agent returns empty or irrelevant results | Prompt too vague | Give specific paths, goals, and constraints |
+| 7 | **Token limit exceeded** | "Context window exceeded" | Too much content in a single conversation | Split tasks, use multiple sessions |
+| 8 | **Inconsistent code style** | Generated code differs from project style | CLAUDE.md lacks style guide | Add coding conventions to CLAUDE.md |
+| 9 | **Tests not passing** | Tests fail after modifications | Claude does not know the project's test patterns | Describe the test framework and patterns in CLAUDE.md |
+| 10 | **API costs too high** | Single session costs several dollars | Redundant searches, large file reads | Precise instructions + /compact + model switching |
+
+### 22.2 Permission-Related Troubleshooting
+
+```
+Problem: git status requires confirmation every time
+┌──────────────────────────────────────┐
+│ Diagnose: Check settings.json        │
+│ $ cat ~/.claude/settings.json        │
+│                                      │
+│ Fix: Add allow rules                 │
+│ "Bash(prefix:git status)"            │
+│ "Bash(prefix:git diff)"              │
+│ "Bash(prefix:git log)"               │
+└──────────────────────────────────────┘
+
+Problem: Cannot edit .env file (blocked by hook)
+┌──────────────────────────────────────┐
+│ Diagnose: Check hook configuration   │
+│ /hooks                               │
+│                                      │
+│ Fix: Adjust the hook's matcher       │
+│ or temporarily disable that hook     │
+└──────────────────────────────────────┘
+
+Problem: Commands rejected in sandbox mode
+┌──────────────────────────────────────┐
+│ Diagnose: SandboxManager config      │
+│ Check the sandbox file access        │
+│ whitelist                            │
+│                                      │
+│ Fix: Add required paths to the       │
+│ whitelist, or disable sandbox in a   │
+│ trusted environment                  │
+└──────────────────────────────────────┘
+```
+
+### 22.3 Performance Troubleshooting
+
+```
+Problem: Claude Code startup is slow (>5 seconds)
+Possible causes:
+├── MCP server startup timeout → Check MCP config, disable unneeded servers
+├── Large CLAUDE.md content → Trim @include files
+├── Network issues → Check API connection
+└── GrowthBook feature flag fetch timeout → Usually auto-times out, no action needed
+
+Problem: Tool execution timeout
+Possible causes:
+├── Bash command takes too long → Set a reasonable timeout
+├── Glob too slow on large projects → Use a more precise pattern
+├── MCP tool responds slowly → Check MCP server status
+└── Network request timeout → WebFetch defaults to 120s, may need increasing
+
+Problem: High memory usage
+Possible causes:
+├── Messages accumulating in long sessions → /compact or /clear
+├── Too many sub-agents running in parallel → Reduce parallelism
+└── Large file reads → Use offset/limit parameters
+```
+
+### 22.4 CLAUDE.md Pitfalls
+
+```
+Pitfall 1: Too much content
+├── Problem: CLAUDE.md + @include exceeds 40,000 characters
+├── Symptom: Some content is silently truncated
+└── Fix: Trim content, keep only essential instructions
+
+Pitfall 2: Contradictory instructions
+├── Problem: Global CLAUDE.md and project CLAUDE.md have conflicting instructions
+├── Symptom: Unpredictable behavior
+└── Fix: Project-level overrides global-level; ensure consistency
+
+Pitfall 3: Over-constraining
+├── Problem: Instructions like "do not modify any files"
+├── Symptom: Claude cannot complete tasks
+└── Fix: Constraints should be specific, e.g. "do not modify src/legacy/"
+
+Pitfall 4: Circular @include references
+├── Problem: A includes B, B includes A
+├── Symptom: Source code has circular reference detection, which breaks the cycle
+└── Fix: Check for and eliminate circular references
+
+Pitfall 5: Including large files
+├── Problem: @include a 10,000-line file
+├── Symptom: Crowds out space for other content, wastes tokens
+└── Fix: Reference concise document summaries only, not full files
+```
+
+### 22.5 Hook Debugging Tips
+
+```bash
+# Test whether hooks are correctly configured
+/hooks
+
+# Debug hook execution
+# Add logging to the hook script
+echo '{"continue":true}' 
+# Hook output to stderr does not affect JSON parsing
+echo "DEBUG: input was $TOOL_INPUT_FILE_PATH" >&2
+
+# Common hook errors
+1. Invalid JSON output format → Hook return must be valid JSON
+2. Script lacks execute permission → chmod +x hook-script.sh
+3. Wrong path → Use absolute paths
+4. Timeout → Default is 60s; complex operations may need a longer timeout
+5. Missing environment variables → Hooks run in a separate process
+```
+
+### 22.6 Best Practices Checklist
+
+```
+□ Project root has a CLAUDE.md
+□ CLAUDE.md includes tech stack, commands, directory structure, conventions
+□ settings.json has reasonable allow/deny rules configured
+□ Common commands (test, lint, build) are in the allow list
+□ Dangerous commands (rm -rf /, sudo, force push) are in the deny list
+□ .claude/rules/ rule files are set up for the project type
+□ MCP servers are configured as needed (do not configure unused ones)
+□ Hooks have been tested and do not interfere with normal workflow
+□ Long tasks have a /compact strategy
+□ Team members share consistent CLAUDE.md and .claude/ configuration
 ```
 
 ---
