@@ -1,6 +1,6 @@
 # Claude Code Internals
 
-### 深入剖析 Anthropic AI 编程智能体的架构、内部实现与设计模式
+### 架构深度解析 + 高效使用指南：Anthropic AI 编程智能体
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![白皮书](https://img.shields.io/badge/白皮书-中文版-red.svg)](Claude_Code_Whitepaper.md)
@@ -12,15 +12,73 @@
 
 ---
 
-## 简介
+## 为什么需要这个仓库？
 
-本仓库包含一份**全面的技术白皮书**，深入分析 **Claude Code v2.1.88** 的架构与内部实现 -- Anthropic 官方推出的 AI 编程 CLI 智能体。
+Claude Code 的能力远超大多数用户的认知。这份白皮书揭示了**它内部究竟是如何运作的**，更重要的是——**如何利用这些知识将你的生产力提升 10 倍**。
 
-本分析完全基于公开可用的源代码仓库，涵盖从高层架构和智能体循环到具体工具实现、权限模型、上下文管理策略以及隐藏的 Feature Gate 等方方面面。
+基于 **513,000 行 TypeScript 源代码**（v2.1.88）的深度分析，这既是：
 
-无论你是研究智能体设计模式的 AI 工程师、希望解锁高级使用技巧的 Claude Code 深度用户，还是对生产级 AI 智能体构建方式感兴趣的研究者，这份白皮书都提供了目前最全面的技术解析。
+- **架构参考手册** — 理解智能体循环、工具系统、权限模型和 108 个隐藏的 Feature Gate
+- **实用高效使用指南** — 15 个 Prompt 模式、10 个工作流食谱、6 个 Hook 自动化、自定义 Agent、成本优化等
 
-**分析规模一览：**
+---
+
+## 快速导航：我能学到什么？
+
+### 想用好 Claude Code？从这里开始：
+
+| 章节 | 你将学到 | 适合人群 |
+|------|---------|---------|
+| [第 14 章 — 入门技巧](Claude_Code_Whitepaper.md) | 首次配置、CLAUDE.md、权限规则、6 种使用模式、斜杠命令 | 新手用户 |
+| [第 15 章 — 进阶技巧](Claude_Code_Whitepaper.md) | **15 个 Prompt 模式**、CLAUDE.md 大师课、6 个 Hook 食谱、MCP 配置、Agent 并行、Git 工作流 | 日常用户 |
+| [第 16 章 — 精通技巧](Claude_Code_Whitepaper.md) | Token 预算精通、成本优化、CI/CD 集成、自定义 Agent、SDK 模式、多项目管理 | 高级用户 |
+| [第 21 章 — 实战食谱](Claude_Code_Whitepaper.md) | **10 个完整实战场景**：全栈开发、Bug 调查、遗留迁移、安全审计、性能优化等 | 所有人 |
+| [第 22 章 — 故障排除](Claude_Code_Whitepaper.md) | Top 10 常见问题、权限/性能调试、CLAUDE.md 陷阱、Hook 调试、最佳实践清单 | 遇到问题时 |
+
+### 想理解内部实现？
+
+| 章节 | 主题 |
+|------|------|
+| 第 1-2 章 | 概述 & 项目结构（1,884 文件、38 个服务） |
+| 第 3 章 | **核心智能体循环** — 系统心脏 `query.ts`（1,729 行）|
+| 第 4 章 | 工具系统 — 全部 45+ 工具、注册表、执行流水线 |
+| 第 5 章 | 权限安全模型 — 5 种模式、YOLO 分类器、沙箱 |
+| 第 6 章 | Hook 事件系统 — 15+ 事件类型、3 种处理器 |
+| 第 7 章 | MCP 集成 — 6 种传输协议、OAuth、工具桥接 |
+| 第 8 章 | 配置体系 — 四级层级、CLAUDE.md 解析 |
+| 第 9 章 | 上下文管理 — Token 预算、自动压缩、Prompt 缓存 |
+| 第 10 章 | Agent 系统 — 子代理、协调模式、Worktree 隔离 |
+| 第 11 章 | System Prompt 构造 — 动态组装、分段缓存 |
+| 第 12 章 | API 通信 — 重试逻辑、流式传输、错误处理 |
+| 第 13 章 | 构建系统 — esbuild、Feature Gate DCE、108 个被消除模块 |
+| 第 17 章 | **隐藏功能** — KAIROS、协调模式、9 个未发布工具 |
+| 第 18-20 章 | 设计模式、Claude API 差异、未来路线图 |
+
+---
+
+## 亮点速览
+
+### 使用技巧亮点
+
+- **15 个 Prompt 工程模式** — 精确定位、上下文预加载、TDD、批量操作、角色设定、约束驱动等
+- **10 个实战工作流食谱** — 全栈功能开发、Bug 调查、遗留代码迁移、安全审计、数据库变更、性能优化、文档生成、测试套件补全、依赖升级的完整步骤指南
+- **6 个 Hook 自动化食谱** — 自动格式化、自动 Lint、敏感文件保护、Commit 规范检查、TypeScript 类型门禁、自动测试
+- **3 个自定义 Agent 模板** — 安全审计员、数据库专家、文档撰写员
+- **成本优化公式** — 从源码推导，含任务类型成本估算表
+- **CI/CD 集成** — GitHub Actions YAML 自动化 Claude Code 代码审查
+- **CLAUDE.md 大师课** — 提供 React、Python、DevOps 三种项目模板
+- **故障排除指南** — Top 10 常见问题及根因分析和修复方案
+
+### 架构亮点
+
+- **Claude Code 不是聊天套壳** — 是完整的智能体框架，拥有 45+ 工具、子代理派生和多层权限系统
+- **108 个 Feature Gate** 控制 KAIROS（自主模式）、Coordinator（多智能体）和 9 个未发布工具的访问
+- **核心智能体循环**（`query.ts`，1,729 行）有 7 个恢复分支处理 Token 限制、压缩和错误状态
+- **权限模型**经过 规则 → 分类器 → Hook → 用户提示 的级联决策，有 8 种决策原因类型
+
+---
+
+## 分析规模
 
 | 指标 | 数值 |
 |------|------|
@@ -29,120 +87,76 @@
 | 工具实现数量 | **45+** |
 | 斜杠命令数量 | **80+** |
 | 服务模块数 | **38** |
-| MCP 传输协议支持 | **6 种** |
+| MCP 传输协议 | **6 种** |
 | Hook 事件类型 | **15+** |
 | Feature Gate 模块 | **108 个** |
+| 文档化的 Prompt 模式 | **15 个** |
+| 工作流食谱 | **10 个** |
+| Hook 食谱 | **6 个** |
+| 自定义 Agent 模板 | **3 个** |
 
 ---
 
-## 目录（白皮书章节）
-
-白皮书共 **20 个章节**，全面覆盖 Claude Code 的内部实现：
-
-| # | 章节 | 描述 |
-|---|------|------|
-| 1 | **概述与背景** | Claude Code 是什么，技术规模与技术栈 |
-| 2 | **项目结构全景** | 完整目录布局、模块组织与依赖关系 |
-| 3 | **核心架构深度解析** | 主智能体循环、查询引擎、流式执行与状态管理 |
-| 4 | **工具系统** | 全部 45+ 工具实现 -- Bash、文件 I/O、搜索、Web、MCP 桥接等 |
-| 5 | **权限与安全模型** | 多层权限系统、信任区域、允许/拒绝规则 |
-| 6 | **Hook 事件系统** | 用户可注入的生命周期钩子、执行模型 |
-| 7 | **MCP 协议集成** | Model Context Protocol 客户端、6 种传输类型、OAuth、工具桥接 |
-| 8 | **配置体系** | 层级配置（全局/项目/会话）、CLAUDE.md 解析、设置解析 |
-| 9 | **上下文管理与压缩** | Token 预算、自动上下文压缩、对话裁剪 |
-| 10 | **Agent 智能体系统** | 子智能体生成、多智能体协调、任务委托模式 |
-| 11 | **System Prompt 构造机制** | 动态 Prompt 组装、分段缓存、能力注入 |
-| 12 | **API 通信与重试机制** | Anthropic Messages API 客户端、重试逻辑、错误处理、流式传输 |
-| 13 | **构建系统与编译优化** | esbuild 流水线、自定义转换、打包优化 |
-| 14 | **高效使用技巧（入门篇）** | 快速上手、基础工作流、核心命令 |
-| 15 | **高效使用技巧（进阶篇）** | 高级模式、自定义 Hook、MCP 服务器、多文件操作 |
-| 16 | **高效使用技巧（精通篇）** | 高级用户技巧、无头模式、CI/CD 集成、编排 |
-| 17 | **内部隐藏功能与 Feature Gate** | 内部功能标志、108 个 Gate 模块、未公开功能 |
-| 18 | **架构设计模式总结** | 代码库中使用的关键设计模式汇总 |
-| 19 | **与标准 Claude API 的本质差异** | Claude Code 与原始 API 访问的根本区别 |
-| 20 | **未来路线图与展望** | 即将推出的功能、架构演进、生态趋势 |
-
-另附**附录**，包含参考表格、术语表及补充数据。
-
----
-
-## 核心发现
-
-- **Claude Code 不是一个聊天机器人套壳** -- 它是一个成熟的智能体框架，拥有 45+ 工具、子智能体生成能力和精密的权限系统。
-- **核心智能体循环**（`query.ts`，约 1,729 行）协调流式工具执行，同时进行实时权限检查和上下文预算管理。
-- **108 个 Feature Gate** 控制内部功能的访问，其中许多未公开文档化，外部用户无法访问。
-- **MCP 集成**支持 6 种传输协议（stdio、SSE、HTTP 流、Docker、npx 和自定义），并具备完整的 OAuth 2.1 认证。
-- **上下文压缩**在接近 Token 限制时自动压缩对话，通过基于 LLM 的摘要保留关键信息。
-- **权限模型**在 4 个信任区域中运行，具有细粒度的允许/拒绝规则，防止未经授权的破坏性操作。
-- **System Prompt 是动态组装的**，来自多个分段并使用 Prompt 缓存提高效率，总计数千 Token 的行为指令。
-- **React/Ink 终端 UI** 在终端中渲染完整的交互式界面，具备状态管理和组件生命周期钩子。
-
----
-
-## 仓库结构
-
-```
-claudeopen/
-├── README.md                           # 英文 README
-├── README_CN.md                        # 本文件（中文）
-├── LICENSE                             # MIT 许可证
-├── .gitignore
-│
-├── Claude_Code_Whitepaper.md           # 完整白皮书（中文）
-├── Claude_Code_Whitepaper.pdf          # PDF 版本（中文）
-├── Claude_Code_Whitepaper_EN.pdf       # PDF 版本（英文）
-│
-└── docs/
-    └── en/
-        └── Claude_Code_Whitepaper_EN.md  # 完整白皮书（英文）
-```
-
----
-
-## 阅读指南
-
-**选择你偏好的格式和语言：**
+## 阅读白皮书
 
 | 格式 | 英文 | 中文 |
 |------|------|------|
 | Markdown | [Claude_Code_Whitepaper_EN.md](docs/en/Claude_Code_Whitepaper_EN.md) | [Claude_Code_Whitepaper.md](Claude_Code_Whitepaper.md) |
 | PDF | [Claude_Code_Whitepaper_EN.pdf](Claude_Code_Whitepaper_EN.pdf) | [Claude_Code_Whitepaper.pdf](Claude_Code_Whitepaper.pdf) |
 
-白皮书设计为可顺序阅读（第 1-13 章为架构分析，第 14-16 章为使用技巧，第 17-20 章为高级主题），但每章都是独立的，可以单独阅读。
+**阅读路线建议：**
+- **"我想用好 Claude Code"** → 从第 14 章开始，然后第 21 章，再看第 15-16 章
+- **"我想理解内部实现"** → 从第 1 章开始，按顺序读到第 13 章
+- **"我遇到问题了"** → 直接跳到第 22 章
+
+---
+
+## 仓库结构
+
+```
+claude-code-internals/
+├── README.md                           # 英文 README
+├── README_CN.md                        # 本文件（中文）
+├── LICENSE                             # MIT 许可证
+├── .gitignore
+│
+├── Claude_Code_Whitepaper.md           # 完整白皮书 — 中文（3,477 行）
+├── Claude_Code_Whitepaper.pdf          # PDF — 中文
+├── Claude_Code_Whitepaper_EN.pdf       # PDF — 英文
+│
+└── docs/
+    └── en/
+        └── Claude_Code_Whitepaper_EN.md  # 完整白皮书 — 英文（3,501 行）
+```
 
 ---
 
 ## 源代码仓库
 
-本分析基于以下公开可用的源代码仓库：
+本分析基于以下公开源代码：
 
-- **[sanbuphy/claude-code-source-code](https://github.com/sanbuphy/claude-code-source-code)** -- Claude Code 提取的源代码
-- **[ChinaSiro/claude-code-sourcemap](https://github.com/ChinaSiro/claude-code-sourcemap)** -- Claude Code 的 Source Map 重建
+- **[sanbuphy/claude-code-source-code](https://github.com/sanbuphy/claude-code-source-code)** — Claude Code 提取的源代码
+- **[ChinaSiro/claude-code-sourcemap](https://github.com/ChinaSiro/claude-code-sourcemap)** — Claude Code 的 Sourcemap 重建
 
-感谢以上仓库的维护者使源代码可以公开获取。本项目仅提供分析和评论。
+感谢以上仓库的维护者。
 
 ---
 
 ## 许可证
 
-本项目采用 [MIT 许可证](LICENSE)。
-
-本仓库中的白皮书及所有分析内容为原创作品。所分析的源代码归 Anthropic 所有，受其自身许可条款约束。
+[MIT License](LICENSE)。白皮书内容为原创作品。所分析的源代码归 Anthropic 所有。
 
 ---
 
 ## 参与贡献
 
-欢迎贡献！如果你发现错误、想要添加新版本的分析或有见解想要分享：
+发现错误？有想法分享？想分析新版本？
 
-1. Fork 本仓库
-2. 创建功能分支
-3. 提交 Pull Request
-
-如果这个项目帮助你更好地理解了 Claude Code，请考虑给一个 Star -- 这有助于更多人发现这个资源。
+1. Fork → Branch → PR
+2. 欢迎提 Issue
 
 ---
 
 <p align="center">
-  <b>如果你觉得这份分析有用，请给个 Star 帮助更多人发现它。</b>
+  <b>如果这份资料帮你掌握了 Claude Code，请给个 ⭐ 让更多人发现它。</b>
 </p>

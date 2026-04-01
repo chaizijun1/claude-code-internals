@@ -1,6 +1,6 @@
 # Claude Code Internals
 
-### A Deep Dive into the Architecture, Internals, and Design Patterns of Anthropic's AI Coding Agent
+### Architecture Deep Dive + Power User Guide for Anthropic's AI Coding Agent
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Whitepaper](https://img.shields.io/badge/Whitepaper-English-green.svg)](docs/en/Claude_Code_Whitepaper_EN.md)
@@ -8,17 +8,77 @@
 [![PDF EN](https://img.shields.io/badge/PDF-English-orange.svg)](Claude_Code_Whitepaper_EN.pdf)
 [![PDF CN](https://img.shields.io/badge/PDF-Chinese-orange.svg)](Claude_Code_Whitepaper.pdf)
 
+[English](README.md) | [中文](README_CN.md)
+
 ---
 
-## Introduction
+## Why This Repo?
 
-This repository contains a **comprehensive whitepaper** analyzing the architecture and internals of **Claude Code v2.1.88** -- Anthropic's official AI-powered CLI coding agent.
+Claude Code is far more powerful than most users realize. This whitepaper reveals **exactly how it works internally** and — more importantly — **how to use that knowledge to 10x your productivity**.
 
-The analysis is based entirely on publicly available source code repositories. It covers everything from the high-level architecture and agent loop down to individual tool implementations, permission models, context management strategies, and hidden feature gates.
+Based on a deep analysis of **513,000 lines of TypeScript source code** (v2.1.88), this is both:
 
-Whether you are an AI engineer studying agent design patterns, a Claude Code power user looking to unlock advanced workflows, or a researcher interested in how production-grade AI agents are built, this whitepaper provides the most thorough technical breakdown available.
+- **An architecture reference** — understand the agent loop, tool system, permission model, and 108 hidden feature gates
+- **A practical power-user guide** — 15 prompt patterns, 10 workflow recipes, 6 hook automations, custom agents, cost optimization, and more
 
-**Scale of what we analyzed:**
+---
+
+## Quick Start: What Can I Learn?
+
+### If you just want to use Claude Code better, start here:
+
+| Chapter | What You'll Learn | Audience |
+|---------|-------------------|----------|
+| [Ch.14 — Beginner Tips](docs/en/Claude_Code_Whitepaper_EN.md) | First setup, CLAUDE.md, permission rules, 6 usage patterns, slash commands | New users |
+| [Ch.15 — Intermediate Tips](docs/en/Claude_Code_Whitepaper_EN.md) | **15 prompt patterns**, CLAUDE.md masterclass, 6 hook recipes, MCP servers, agent parallel work, git workflows | Regular users |
+| [Ch.16 — Expert Tips](docs/en/Claude_Code_Whitepaper_EN.md) | Token budget mastery, cost optimization, CI/CD integration, custom agents, SDK mode, multi-project management | Power users |
+| [Ch.21 — Workflow Recipes](docs/en/Claude_Code_Whitepaper_EN.md) | **10 complete real-world recipes**: full-stack dev, bug investigation, legacy migration, security audit, perf optimization, and more | All levels |
+| [Ch.22 — Troubleshooting](docs/en/Claude_Code_Whitepaper_EN.md) | Top 10 issues, permission/performance debugging, CLAUDE.md pitfalls, hook debugging, best practices checklist | When stuck |
+
+### If you want to understand the internals:
+
+| Chapter | Topic |
+|---------|-------|
+| Ch.1-2 | Overview & project structure (1,884 files, 38 services) |
+| Ch.3 | **Core agent loop** — the `query.ts` heart of the system (1,729 lines) |
+| Ch.4 | Tool system — all 45+ tools, registry, execution pipeline |
+| Ch.5 | Permission & security model — 5 modes, YOLO classifier, sandbox |
+| Ch.6 | Hook event system — 15+ event types, 3 handler types |
+| Ch.7 | MCP integration — 6 transport protocols, OAuth, tool bridging |
+| Ch.8 | Configuration — 4-level hierarchy, CLAUDE.md parsing |
+| Ch.9 | Context management — token budgets, auto-compaction, prompt caching |
+| Ch.10 | Agent system — sub-agents, coordinator mode, worktree isolation |
+| Ch.11 | System prompt construction — dynamic assembly, caching |
+| Ch.12 | API communication — retry logic, streaming, error handling |
+| Ch.13 | Build system — esbuild, feature gate DCE, 108 eliminated modules |
+| Ch.17 | **Hidden features** — KAIROS, Coordinator Mode, 9 unreleased tools |
+| Ch.18-20 | Design patterns, Claude API differences, future roadmap |
+
+---
+
+## Highlights
+
+### Usage Tips Highlights
+
+- **15 Prompt Engineering Patterns** — precision targeting, context preloading, TDD, batch operations, role-setting, constraint-driven, and 9 more
+- **10 Real-World Workflow Recipes** — step-by-step guides for full-stack features, bug investigation, legacy migration, security audits, database changes, perf optimization, doc generation, test suites, dependency upgrades
+- **6 Hook Automation Recipes** — auto-format, auto-lint, sensitive file protection, commit message enforcement, TypeScript type gate, auto-test
+- **3 Custom Agent Templates** — security auditor, database expert, documentation writer
+- **Cost Optimization Formula** — derived from source code, with task-type cost estimates
+- **CI/CD Integration** — GitHub Actions YAML for automated Claude Code reviews
+- **CLAUDE.md Masterclass** — templates for React, Python, and DevOps projects
+- **Troubleshooting Guide** — top 10 issues with root cause analysis and fixes
+
+### Architecture Highlights
+
+- **Claude Code is not a chatbot wrapper** — it is a full agent framework with 45+ tools, sub-agent spawning, and a multi-layer permission system
+- **108 feature gates** control access to internal capabilities like KAIROS (autonomous mode), Coordinator (multi-agent), and 9 unreleased tools
+- **The core agent loop** (`query.ts`, 1,729 lines) has 7 recovery branches for handling token limits, compaction, and error states
+- **The permission model** cascades through rules → classifier → hooks → user prompt, with 8 decision reason types
+
+---
+
+## Scale of Analysis
 
 | Metric | Value |
 |--------|-------|
@@ -30,117 +90,73 @@ Whether you are an AI engineer studying agent design patterns, a Claude Code pow
 | MCP transport protocols | **6** |
 | Hook event types | **15+** |
 | Feature gate modules | **108** |
+| Prompt patterns documented | **15** |
+| Workflow recipes | **10** |
+| Hook recipes | **6** |
+| Custom agent templates | **3** |
 
 ---
 
-## Table of Contents (Whitepaper Chapters)
-
-The whitepaper is organized into **20 chapters** covering the full breadth of Claude Code's internals:
-
-| # | Chapter | Description |
-|---|---------|-------------|
-| 1 | **Overview & Background** | What Claude Code is, its technical scale, and technology stack |
-| 2 | **Project Structure Panorama** | Full directory layout, module organization, and dependency graph |
-| 3 | **Core Architecture Deep Dive** | The main agent loop, query engine, streaming execution, and state management |
-| 4 | **Tool System** | All 45+ tool implementations -- Bash, File I/O, Search, Web, MCP bridge, and more |
-| 5 | **Permission & Security Model** | Multi-layer permission system, trust zones, allow/deny rules |
-| 6 | **Hook Event System** | User-injectable hooks at key lifecycle points, execution model |
-| 7 | **MCP Protocol Integration** | Model Context Protocol client, 6 transport types, OAuth, tool bridging |
-| 8 | **Configuration System** | Hierarchical config (global/project/session), CLAUDE.md parsing, settings resolution |
-| 9 | **Context Management & Compaction** | Token budgeting, automatic context compression, conversation pruning |
-| 10 | **Agent System** | Sub-agent spawning, multi-agent coordination, task delegation patterns |
-| 11 | **System Prompt Construction** | Dynamic prompt assembly, section caching, capability injection |
-| 12 | **API Communication & Retry** | Anthropic Messages API client, retry logic, error handling, streaming |
-| 13 | **Build System & Compilation** | esbuild pipeline, custom transforms, bundle optimization |
-| 14 | **Effective Usage (Beginner)** | Getting started, basic workflows, essential commands |
-| 15 | **Effective Usage (Intermediate)** | Advanced patterns, custom hooks, MCP servers, multi-file operations |
-| 16 | **Effective Usage (Expert)** | Power-user techniques, headless mode, CI/CD integration, orchestration |
-| 17 | **Hidden Features & Feature Gates** | Internal feature flags, 108 gate modules, undocumented capabilities |
-| 18 | **Architecture Design Patterns** | Summary of key design patterns used throughout the codebase |
-| 19 | **Differences from Standard Claude API** | What makes Claude Code fundamentally different from raw API access |
-| 20 | **Future Roadmap & Outlook** | Upcoming features, architectural evolution, ecosystem trends |
-
-Plus an **Appendix** with reference tables, glossary, and supplementary data.
-
----
-
-## Key Findings
-
-- **Claude Code is not a chatbot wrapper** -- it is a full-fledged agent framework with 45+ tools, sub-agent spawning, and a sophisticated permission system.
-- **The core agent loop** (`query.ts`, ~1,729 lines) orchestrates streaming tool execution with real-time permission checks and context budgeting.
-- **108 feature gates** control access to internal capabilities, many of which are undocumented and inaccessible to external users.
-- **The MCP integration** supports 6 transport protocols (stdio, SSE, HTTP streaming, Docker, npx, and custom) with full OAuth 2.1 authentication.
-- **Context compaction** automatically compresses conversations when token limits are approached, preserving critical information through an LLM-based summarization pass.
-- **The permission model** operates across 4 trust zones with granular allow/deny rules, preventing destructive operations unless explicitly authorized.
-- **System prompts are dynamically assembled** from multiple sections with prompt caching for efficiency, totaling thousands of tokens of behavioral instructions.
-- **The React/Ink terminal UI** renders a full interactive interface in the terminal, complete with state management and component lifecycle hooks.
-
----
-
-## Repository Structure
-
-```
-claudeopen/
-├── README.md                           # This file (English)
-├── README_CN.md                        # Chinese version of this README
-├── LICENSE                             # MIT License
-├── .gitignore
-│
-├── Claude_Code_Whitepaper.md           # Full whitepaper (Chinese)
-├── Claude_Code_Whitepaper.pdf          # PDF version (Chinese)
-├── Claude_Code_Whitepaper_EN.pdf       # PDF version (English)
-│
-└── docs/
-    └── en/
-        └── Claude_Code_Whitepaper_EN.md  # Full whitepaper (English)
-```
-
----
-
-## How to Read
-
-**Choose your preferred format and language:**
+## Read the Whitepaper
 
 | Format | English | Chinese |
 |--------|---------|---------|
 | Markdown | [Claude_Code_Whitepaper_EN.md](docs/en/Claude_Code_Whitepaper_EN.md) | [Claude_Code_Whitepaper.md](Claude_Code_Whitepaper.md) |
 | PDF | [Claude_Code_Whitepaper_EN.pdf](Claude_Code_Whitepaper_EN.pdf) | [Claude_Code_Whitepaper.pdf](Claude_Code_Whitepaper.pdf) |
 
-The whitepaper is designed to be read sequentially (Chapters 1-13 for architecture, 14-16 for usage, 17-20 for advanced topics), but each chapter is self-contained and can be read independently.
+**Reading paths:**
+- **"I want to use Claude Code better"** → Start at Chapter 14, then 21, then 15-16
+- **"I want to understand the internals"** → Start at Chapter 1, read through 13
+- **"I'm having issues"** → Jump to Chapter 22
+
+---
+
+## Repository Structure
+
+```
+claude-code-internals/
+├── README.md                           # This file (English)
+├── README_CN.md                        # Chinese README
+├── LICENSE                             # MIT License
+├── .gitignore
+│
+├── Claude_Code_Whitepaper.md           # Full whitepaper — Chinese (3,477 lines)
+├── Claude_Code_Whitepaper.pdf          # PDF — Chinese
+├── Claude_Code_Whitepaper_EN.pdf       # PDF — English
+│
+└── docs/
+    └── en/
+        └── Claude_Code_Whitepaper_EN.md  # Full whitepaper — English (3,501 lines)
+```
 
 ---
 
 ## Source Repositories
 
-This analysis is based on publicly available source code from the following repositories:
+This analysis is based on publicly available source code:
 
-- **[sanbuphy/claude-code-source-code](https://github.com/sanbuphy/claude-code-source-code)** -- Extracted source code of Claude Code
-- **[ChinaSiro/claude-code-sourcemap](https://github.com/ChinaSiro/claude-code-sourcemap)** -- Source map reconstruction of Claude Code
+- **[sanbuphy/claude-code-source-code](https://github.com/sanbuphy/claude-code-source-code)** — Extracted source code of Claude Code
+- **[ChinaSiro/claude-code-sourcemap](https://github.com/ChinaSiro/claude-code-sourcemap)** — Sourcemap reconstruction of Claude Code
 
-All credit for making the source code accessible goes to the maintainers of these repositories. This project provides analysis and commentary only.
+All credit for making the source code accessible goes to the maintainers of these repositories.
 
 ---
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
-
-The whitepaper and all analysis content in this repository are original work. The source code analyzed belongs to Anthropic and is subject to its own licensing terms.
+[MIT License](LICENSE). The whitepaper content is original work. The analyzed source code belongs to Anthropic.
 
 ---
 
 ## Contributing
 
-Contributions are welcome! If you find errors, want to add analysis of newer versions, or have insights to share:
+Found an error? Have insights to add? Want to analyze a newer version?
 
-1. Fork this repository
-2. Create a feature branch
-3. Submit a pull request
-
-If this project helped you understand Claude Code better, please consider giving it a star -- it helps others discover this resource.
+1. Fork → Branch → PR
+2. Issues welcome
 
 ---
 
 <p align="center">
-  <b>If you find this analysis useful, please give it a star to help others find it.</b>
+  <b>If this helped you master Claude Code, give it a ⭐ so others can find it too.</b>
 </p>
